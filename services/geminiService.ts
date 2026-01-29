@@ -1,13 +1,24 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { JobPost, ExtractedCVData, LearningRecommendation, CareerRoadmap, Application } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * HELPER: Initialize AI client
+ * Best practice: Create the instance right before the call to ensure 
+ * the latest environment variables are used and to prevent startup crashes.
+ */
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey) {
+    throw new Error("System Authorization Error: API_KEY is not defined in the environment.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 /**
  * Parses raw resume text into a structured profile.
  */
 export const parseResume = async (resumeText: string): Promise<ExtractedCVData> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Act as a senior technical recruiter. Extract the candidate's professional details from this resume text.
@@ -38,11 +49,11 @@ export const parseResume = async (resumeText: string): Promise<ExtractedCVData> 
 
 /**
  * Generates a high-quality 5-phase career roadmap with real search grounding.
- * Fixed: Separated Search Grounding from JSON Schema to avoid API 400 error.
  */
 export const generateCareerRoadmap = async (cvData: ExtractedCVData): Promise<CareerRoadmap> => {
-  // STEP 1: Research Phase (Text only, no JSON schema)
-  // This avoids the 400 error caused by mixing googleSearch + responseSchema
+  const ai = getAI();
+  
+  // STEP 1: Research Phase (Search Grounding)
   const researchResponse = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `You are a Jordanian HR Market Expert. Research the current 2024-2025 salary benchmarks in Amman, Jordan for this profile:
@@ -122,7 +133,6 @@ export const generateCareerRoadmap = async (cvData: ExtractedCVData): Promise<Ca
 
   const roadmap: CareerRoadmap = JSON.parse(structureResponse.text || '{}');
   
-  // Attach grounding sources from Step 1
   if (groundingChunks) {
     roadmap.groundingSources = groundingChunks
       .filter((c: any) => c.web)
@@ -145,6 +155,7 @@ export const calculateMatch = async (cvData: ExtractedCVData, job: JobPost): Pro
   skillGaps: string[]; 
   learningRecommendations: LearningRecommendation[] 
 }> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Perform a detailed 'Hire/No-Hire' match analysis.
@@ -195,6 +206,7 @@ export const getHiringRecommendation = async (job: JobPost, applicants: Applicat
   primary: { name: string; reasoning: string; risk: string };
   alternatives: { name: string; reasoning: string; risk: string }[];
 }> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Act as a Chief Talent Officer. Analyze these applicants for the role of ${job.title}.
@@ -244,6 +256,7 @@ export const getHiringRecommendation = async (job: JobPost, applicants: Applicat
  * Generates a tailored technical assessment for the candidate.
  */
 export const generateTechnicalTest = async (cvData: ExtractedCVData, job: JobPost) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Generate a 5-question technical assessment for ${cvData.fullName} for the role of ${job.title}.
@@ -275,6 +288,7 @@ export const generateTechnicalTest = async (cvData: ExtractedCVData, job: JobPos
  * Grades the candidate's technical assessment.
  */
 export const evaluateTest = async (questions: any[], answers: any) => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Grade this technical test.
@@ -296,7 +310,11 @@ export const evaluateTest = async (questions: any[], answers: any) => {
   return JSON.parse(response.text || '{}');
 };
 
+/**
+ * Identifies skills from a text description.
+ */
 export const extractSkillsFromDescription = async (description: string): Promise<string[]> => {
+  const ai = getAI();
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview',
     contents: `Identify top technical and soft skills from this Job Description: ${description}`,
