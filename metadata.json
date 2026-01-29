@@ -1,0 +1,8 @@
+{
+  "name": "HR Platform | Professional Recruitment & Development",
+  "description": "An elite recruitment ecosystem that matches professional profiles, manages technical assessments, and projects career development roadmaps.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
