@@ -64,8 +64,64 @@ export const StorageProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   const removeToast = (id: string) => setToasts(prev => prev.filter(t => t.id !== id));
 
+  const seedDatabase = async () => {
+    // Check for roles
+    const existingRoles = await apiService.admin.getRoles();
+    if (existingRoles.length === 0) {
+      const superRole: Role = {
+        id: 'role-super',
+        name: 'Super Admin',
+        description: 'Global system override and governance.',
+        isSystem: true,
+        permissions: [
+          { moduleId: 'JOBS', actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE'] },
+          { moduleId: 'CANDIDATES', actions: ['VIEW', 'EDIT', 'DELETE', 'EXECUTE', 'EXPORT'] },
+          { moduleId: 'CV_PARSING', actions: ['VIEW', 'EXECUTE'] },
+          { moduleId: 'ASSESSMENTS', actions: ['VIEW', 'EXECUTE'] },
+          { moduleId: 'BENCHMARK', actions: ['VIEW', 'EXECUTE'] },
+          { moduleId: 'INTELLIGENCE', actions: ['VIEW', 'EXECUTE'] },
+          { moduleId: 'TEAM', actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE'] },
+          { moduleId: 'ROLES', actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE'] },
+          { moduleId: 'BRANCHES', actions: ['VIEW', 'CREATE', 'EDIT', 'DELETE'] },
+          { moduleId: 'SETTINGS', actions: ['VIEW', 'EDIT'] },
+          { moduleId: 'GUIDE', actions: ['VIEW'] }
+        ]
+      };
+      await apiService.admin.saveRole(superRole);
+    }
+
+    // Check for users
+    const users = await apiService.admin.getUsers();
+    if (users.length === 0) {
+      const defaultAdmin: AdminUser = {
+        id: 'admin-primary',
+        fullName: 'System Architect',
+        email: 'admin@protocol.ai',
+        position: 'Super Administrator',
+        phone: 'Admin@123', // Used as password in mock auth
+        role: 'super',
+        roleId: 'role-super',
+        branchId: 'main-hub',
+        createdAt: Date.now()
+      };
+      await apiService.admin.saveUser(defaultAdmin);
+    }
+
+    // Check for branches
+    const existingBranches = await apiService.branches.list();
+    if (existingBranches.length === 0) {
+      await apiService.branches.save({
+        id: 'main-hub',
+        name: 'Central Intelligence Hub',
+        companyName: 'Protocol AI Global',
+        createdAt: Date.now()
+      });
+    }
+  };
+
   const refreshData = async () => {
     try {
+      await seedDatabase();
       const [b, j, a, u, r, n] = await Promise.all([
         apiService.branches.list(),
         apiService.jobs.list(),
